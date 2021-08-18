@@ -73,8 +73,8 @@ export const runSingleAndSave = async (
             .get('general.archiveFolderLocation') as string;
         if (archiveFolderPath != '') {
             const x = problem.group.indexOf('-');
-            let contestSite = '';
-            let contestName = '';
+            let contestSite = 'some-path-error-occured';
+            let contestName = problem.group;
 
             if (x != -1) {
                 contestSite = problem.group.substring(0, x).trim();
