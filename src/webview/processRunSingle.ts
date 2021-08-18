@@ -9,6 +9,7 @@ import { getJudgeViewProvider } from '../extension';
 
 import { writeFile, readFile, mkdir } from 'fs';
 const homedir = require('os').homedir();
+import path from 'path';
 
 export const runSingleAndSave = async (
     problem: Problem,
@@ -34,24 +35,29 @@ export const runSingleAndSave = async (
     saveProblem(srcPath, problem);
 
     //first get file name problem
-    var filename = problem.name;
+    let filename = problem.name;
     //  problems having their group as local have "Local: " as prefix, so removing it
-    if (problem.group == "local" && problem.name.slice(0, 7) == "Local: ") filename = problem.name.substr(7);
+    if (problem.group == 'local' && problem.name.slice(0, 7) == 'Local: ')
+        filename = problem.name.substr(7);
 
-    if (problem.srcPath.slice(problem.srcPath.length - 2) == ".c") filename += '.c';
-    else if (problem.srcPath.slice(problem.srcPath.length - 3) == ".py") filename += '.py';
-    else if (problem.srcPath.slice(problem.srcPath.length - 4) == ".cpp") filename += '.cpp';
-    else if (problem.srcPath.slice(problem.srcPath.length - 5) == ".java") filename += '.java';
+    if (problem.srcPath.slice(problem.srcPath.length - 2) == '.c')
+        filename += '.c';
+    else if (problem.srcPath.slice(problem.srcPath.length - 3) == '.py')
+        filename += '.py';
+    else if (problem.srcPath.slice(problem.srcPath.length - 4) == '.cpp')
+        filename += '.cpp';
+    else if (problem.srcPath.slice(problem.srcPath.length - 5) == '.java')
+        filename += '.java';
 
     //  Now read contents of the source-file
     readFile(problem.srcPath, 'utf8', function (err: any, data: string) {
         if (err) {
             return console.log(err);
         }
-        var file_contents = data;
+        let file_contents = data;
 
         // get meta-data for the file
-        var file_meta_data = "";
+        let file_meta_data = '';
         file_meta_data += '/*\n';
         file_meta_data += '\tgroup : ' + problem.group + '\n';
         file_meta_data += '\tname : ' + filename + '\n';
@@ -62,28 +68,60 @@ export const runSingleAndSave = async (
         // add the meta-data in source-file's string
         file_contents = file_meta_data + file_contents;
 
-        const archiveFolderPath = vscode.workspace.getConfiguration('cph').get("general.archiveFolderLocation");
-        if (archiveFolderPath != "") {
+        const archiveFolderPath = vscode.workspace
+            .getConfiguration('cph')
+            .get('general.archiveFolderLocation') as string;
+        if (archiveFolderPath != '') {
+            const x = problem.group.indexOf('-');
+            let contestSite = '';
+            let contestName = '';
+
+            if (x != -1) {
+                contestSite = problem.group.substring(0, x).trim();
+                contestName = problem.group.substring(x + 1).trim();
+            }
+
+            const newPath = path.join(
+                archiveFolderPath,
+                contestSite,
+                contestName,
+            );
+
             // create the required directory if it doesn't exists
-            mkdir(archiveFolderPath + "/" + problem.group, { recursive: true }, (err: any) => {
+            mkdir(newPath, { recursive: true }, (err: any) => {
                 if (err) throw err;
-            })
+            });
 
             // create the file in the required directory
-            writeFile(archiveFolderPath + "/" + problem.group + '/' + filename, file_contents, (err: any) => {
+            writeFile(
+                path.join(newPath, filename),
+                file_contents,
+                (err: any) => {
+                    if (err) {
+                        // if there is some error in creating file in required directory, make file in the home-directory, also add the error message
+                        let error_message = '';
+                        error_message +=
+                            '//   there was some error in creating file in the directory ' +
+                            archiveFolderPath +
+                            '/' +
+                            problem.group +
+                            '\n';
+                        error_message +=
+                            '//   so creating the file in home directory ' +
+                            homedir +
+                            '\n';
+                        file_contents = error_message + file_contents;
 
-                if (err) {
-                    // if there is some error in creating file in required directory, make file in the home-directory, also add the error message
-                    var error_message = "";
-                    error_message += "//   there was some error in creating file in the directory " + archiveFolderPath + "/" + problem.group + "\n";
-                    error_message += "//   so creating the file in home directory " + homedir + "\n";
-                    file_contents = error_message + file_contents;
-
-                    writeFile(homedir + "/" + filename, file_contents, (err: any) => {
-                        if (err) throw err;
-                    })
-                }
-            })
+                        writeFile(
+                            path.join(homedir, filename),
+                            file_contents,
+                            (err: any) => {
+                                if (err) throw err;
+                            },
+                        );
+                    }
+                },
+            );
         }
     });
 
