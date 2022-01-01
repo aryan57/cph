@@ -35,19 +35,7 @@ export const runSingleAndSave = async (
     saveProblem(srcPath, problem);
 
     //first get file name problem
-    let filename = problem.name;
-    //  problems having their group as local have "Local: " as prefix, so removing it
-    if (problem.group == 'local' && problem.name.slice(0, 7) == 'Local: ')
-        filename = problem.name.substr(7);
-
-    if (problem.srcPath.slice(problem.srcPath.length - 2) == '.c')
-        filename += '.c';
-    else if (problem.srcPath.slice(problem.srcPath.length - 3) == '.py')
-        filename += '.py';
-    else if (problem.srcPath.slice(problem.srcPath.length - 4) == '.cpp')
-        filename += '.cpp';
-    else if (problem.srcPath.slice(problem.srcPath.length - 5) == '.java')
-        filename += '.java';
+    let filename = path.basename(problem.srcPath);
 
     //  Now read contents of the source-file
     readFile(problem.srcPath, 'utf8', function (err: any, data: string) {
