@@ -35,7 +35,19 @@ export const runSingleAndSave = async (
     saveProblem(srcPath, problem);
 
     //first get file name problem
-    let filename = path.basename(problem.srcPath);
+    let fileName = problem.name;
+    //  problems having their group as local have "Local: " as prefix, so removing it
+    if (problem.group == 'local' && problem.name.slice(0, 7) == 'Local: ')
+        fileName = problem.name.substr(7);
+
+    if (problem.srcPath.slice(problem.srcPath.length - 2) == '.c')
+        fileName += '.c';
+    else if (problem.srcPath.slice(problem.srcPath.length - 3) == '.py')
+        fileName += '.py';
+    else if (problem.srcPath.slice(problem.srcPath.length - 4) == '.cpp')
+        fileName += '.cpp';
+    else if (problem.srcPath.slice(problem.srcPath.length - 5) == '.java')
+        fileName += '.java';
 
     //  Now read contents of the source-file
     readFile(problem.srcPath, 'utf8', function (err: any, data: string) {
@@ -48,7 +60,7 @@ export const runSingleAndSave = async (
         let file_meta_data = '';
         file_meta_data += '/*\n';
         file_meta_data += '\tgroup : ' + problem.group + '\n';
-        file_meta_data += '\tname : ' + filename + '\n';
+        file_meta_data += '\tname : ' + fileName + '\n';
         file_meta_data += '\tsrcPath : ' + problem.srcPath + '\n';
         file_meta_data += '\turl : ' + problem.url + '\n';
         file_meta_data += '*/\n';
@@ -69,6 +81,11 @@ export const runSingleAndSave = async (
                 contestName = problem.group.substring(x + 1).trim();
             }
 
+            // replace invalid characters from file names and folder paths
+            contestSite = contestSite.replace(/[/\\?%*:|"<>]/g, '-');
+            contestName = contestName.replace(/[/\\?%*:|"<>]/g, '-');
+            fileName = fileName.replace(/[/\\?%*:|"<>]/g, '-');
+
             const newPath = path.join(
                 archiveFolderPath,
                 contestSite,
@@ -82,7 +99,7 @@ export const runSingleAndSave = async (
 
             // create the file in the required directory
             writeFile(
-                path.join(newPath, filename),
+                path.join(newPath, fileName),
                 file_contents,
                 (err: any) => {
                     if (err) {
@@ -101,7 +118,7 @@ export const runSingleAndSave = async (
                         file_contents = error_message + file_contents;
 
                         writeFile(
-                            path.join(homedir, filename),
+                            path.join(homedir, fileName),
                             file_contents,
                             (err: any) => {
                                 if (err) throw err;
