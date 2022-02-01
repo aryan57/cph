@@ -81,10 +81,22 @@ export const runSingleAndSave = async (
                 contestName = problem.group.substring(x + 1).trim();
             }
 
+            function removeBadChar(str: string) {
+                let answer = "";
+                for (let i = 0; i < str.length; i++) {
+                    if ((str[i] >= 'a' && str[i] <= 'z')
+                        || (str[i] >= 'A' && str[i] <= 'Z')
+                        || (str[i] >= '0' && str[i] <= '9')
+                        || str[i]=='.')answer+=str[i];
+                        else answer+='-';
+                }
+                return answer;
+            }
+
             // replace invalid characters from file names and folder paths
-            contestSite = contestSite.replace(/[/\\?%*:|"<>]/g, '-');
-            contestName = contestName.replace(/[/\\?%*:|"<>]/g, '-');
-            fileName = fileName.replace(/[/\\?%*:|"<>]/g, '-');
+            contestSite = removeBadChar(contestSite);
+            contestName = removeBadChar(contestName);
+            fileName = removeBadChar(fileName);
 
             const newPath = path.join(
                 archiveFolderPath,
@@ -107,9 +119,7 @@ export const runSingleAndSave = async (
                         let error_message = '';
                         error_message +=
                             '//   there was some error in creating file in the directory ' +
-                            archiveFolderPath +
-                            '/' +
-                            problem.group +
+                            newPath+
                             '\n';
                         error_message +=
                             '//   so creating the file in home directory ' +
