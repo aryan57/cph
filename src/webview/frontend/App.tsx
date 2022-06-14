@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useReducer } from 'react';
 import ReactDOM from 'react-dom';
 import {
     Problem,
@@ -8,10 +8,13 @@ import {
     VSToWebViewMessage,
     ResultCommand,
     RunningCommand,
+    WebViewpersistenceState,
 } from '../../types';
 import CaseView from './CaseView';
 declare const vscodeApi: {
     postMessage: (message: WebviewToVSEvent) => void;
+    getState: () => WebViewpersistenceState | undefined;
+    setState: (state: WebViewpersistenceState) => void;
 };
 
 function Judge(props: {
@@ -289,13 +292,19 @@ function Judge(props: {
         if (url.hostname == 'codeforces.com') {
             return (
                 <button className="btn" onClick={submitCf}>
-                    Submit to Codeforces
+                    <span className="icon">
+                        <i className="codicon codicon-cloud-upload"></i>
+                    </span>{' '}
+                    Submit
                 </button>
             );
         } else if (url.hostname == 'open.kattis.com') {
             return (
                 <div className="pad-10 submit-area">
                     <button className="btn" onClick={submitKattis}>
+                        <span className="icon">
+                            <i className="codicon codicon-cloud-upload"></i>
+                        </span>{' '}
                         Submit on Kattis
                     </button>
                     {waitingForSubmit && (
@@ -348,14 +357,20 @@ function Judge(props: {
             </div>
             <div className="results">{views}</div>
             <div className="margin-10">
-                <button
-                    className="btn btn-green"
-                    onClick={newCase}
-                    title="Create a new empty testcase"
-                >
-                    + New Testcase
-                </button>
-                {renderSubmitButton()}
+                <div className="row">
+                    <button
+                        className="btn btn-green"
+                        onClick={newCase}
+                        title="Create a new empty testcase"
+                    >
+                        <span className="icon">
+                            <i className="codicon codicon-add"></i>
+                        </span>{' '}
+                        New Testcase
+                    </button>
+                    {renderSubmitButton()}
+                </div>
+
                 <br />
                 <span onClick={toggleOnlineJudgeEnv}>
                     <input type="checkbox" checked={onlineJudgeEnv} />
@@ -366,41 +381,60 @@ function Judge(props: {
             </div>
 
             <div className="actions">
-                <button
-                    className="btn"
-                    onClick={runAll}
-                    title="Run all testcases again"
-                >
-                    ↺ Run All
-                </button>
-                <button
-                    className="btn btn-green"
-                    onClick={newCase}
-                    title="Create a new empty testcase"
-                >
-                    + New
-                </button>
-                <button
-                    className="btn btn-orange"
-                    onClick={stop}
-                    title="Kill all running testcases"
-                >
-                    ⊗ Stop
-                </button>
-                <a
-                    className="btn"
-                    title="Help"
-                    href="https://github.com/agrawal-d/cph/blob/main/docs/user-guide.md"
-                >
-                    ?
-                </a>
-                <button
-                    className="btn btn-red right"
-                    onClick={deleteTcs}
-                    title="Delete all testcases and close results window"
-                >
-                    ☠ Delete
-                </button>
+                <div className="row">
+                    <button
+                        className="btn"
+                        onClick={runAll}
+                        title="Run all testcases again"
+                    >
+                        <span className="icon">
+                            <i className="codicon codicon-debug-restart"></i>
+                        </span>{' '}
+                        Run All
+                    </button>
+                    <button
+                        className="btn btn-green"
+                        onClick={newCase}
+                        title="Create a new empty testcase"
+                    >
+                        <span className="icon">
+                            <i className="codicon codicon-add"></i>
+                        </span>{' '}
+                        New
+                    </button>
+                </div>
+                <div className="row">
+                    <button
+                        className="btn btn-orange"
+                        onClick={stop}
+                        title="Kill all running testcases"
+                    >
+                        <span className="icon">
+                            <i className="codicon codicon-circle-slash"></i>
+                        </span>{' '}
+                        Stop
+                    </button>
+                    <a
+                        className="btn"
+                        title="Help"
+                        href="https://github.com/agrawal-d/cph/blob/main/docs/user-guide.md"
+                    >
+                        <span className="icon">
+                            <i className="codicon codicon-question"></i>
+                        </span>{' '}
+                        Help
+                    </a>
+                    <button
+                        className="btn btn-red right"
+                        onClick={deleteTcs}
+                        title="Delete all testcases and close results window"
+                    >
+                        <span className="icon">
+                            <i className="codicon codicon-trash"></i>
+                        </span>{' '}
+                        Delete
+                    </button>
+                </div>
             </div>
 
             {waitingForSubmit && (
@@ -413,7 +447,7 @@ function Judge(props: {
                             cph-submit browser extension{' '}
                         </a>
                         installed, and a browser window open. You can change
-                        change language ID from VS Code settings.
+                        language ID from VS Code settings.
                         <br />
                         <br />
                         Hint: You can also press <kbd>Ctrl+Alt+S</kbd> to
@@ -448,6 +482,7 @@ function App() {
     const [deferSaveTimer, setDeferSaveTimer] = useState<number | null>(null);
     const [, setSaving] = useState<boolean>(false);
     const [showFallback, setShowFallback] = useState<boolean>(false);
+    const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
     // Save the problem
     const save = () => {
@@ -461,6 +496,11 @@ function App() {
         setTimeout(() => {
             setSaving(false);
         }, 500);
+    };
+
+    const ignoreSpaceWarning = () => {
+        vscodeApi.setState({ ignoreSpaceWarning: true });
+        forceUpdate();
     };
 
     const handleRunSingleResult = (data: ResultCommand) => {
@@ -519,35 +559,82 @@ function App() {
         });
     };
 
+    const getSpaceClassName = () =>
+        vscodeApi.getState()?.ignoreSpaceWarning === true
+            ? 'noSpaceWarning'
+            : 'spaceWarning';
+
     if (problem === undefined && showFallback) {
         return (
-            <div className="ui p10">
-                <div className="text-center">
-                    <p>
-                        This document does not have a CPH problem associated
-                        with it.
-                    </p>
-                    <br />
-                    <div className="btn btn-block" onClick={createProblem}>
-                        + Create Problem
+            <>
+                <div className={`ui p10 fallback`}>
+                    <div className="text-center">
+                        <p>
+                            This document does not have a CPH problem associated
+                            with it.
+                        </p>
+                        <br />
+                        <div className="btn btn-block" onClick={createProblem}>
+                            <span className="icon">
+                                <i className="codicon codicon-add"></i>
+                            </span>{' '}
+                            Create Problem
+                        </div>
+                        <a
+                            className="btn btn-block btn-green"
+                            href="https://github.com/agrawal-d/cph/blob/main/docs/user-guide.md"
+                        >
+                            <span className="icon">
+                                <i className="codicon codicon-question"></i>
+                            </span>{' '}
+                            How to use this extension
+                        </a>
                     </div>
-                    <a
-                        className="btn btn-block btn-green"
-                        href="https://github.com/agrawal-d/cph/blob/main/docs/user-guide.md"
-                    >
-                        How to use this extension
-                    </a>
                 </div>
-            </div>
+            </>
         );
     } else if (problem !== undefined) {
         return (
-            <Judge
-                problem={problem}
-                updateProblem={setProblem}
-                cases={cases}
-                updateCases={setCases}
-            />
+            <div className={getSpaceClassName()}>
+                <div className="size-warning">
+                    <h4 className="icon">
+                        <i
+                            className="codicon codicon-warning"
+                            style={{ fontSize: '20px' }}
+                        ></i>{' '}
+                        Competitive Programming Helper
+                    </h4>
+                    <p>
+                        The sidebar width is too small to display the UI. Please
+                        click and drag from the edge of the sidebar to increase
+                        the width.
+                    </p>
+                    <small>
+                        This warning will go away once the width is large
+                        enough.
+                    </small>
+                    <br />
+                    <br />
+                    <div
+                        className="btn btn-primary"
+                        onClick={ignoreSpaceWarning}
+                    >
+                        <span className="icon">
+                            <i
+                                className="codicon codicon-eye-closed"
+                                style={{ fontSize: '20px' }}
+                            ></i>{' '}
+                            Ignore warning forever
+                        </span>
+                    </div>
+                </div>
+                <Judge
+                    problem={problem}
+                    updateProblem={setProblem}
+                    cases={cases}
+                    updateCases={setCases}
+                />
+            </div>
         );
     } else {
         return (

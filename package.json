@@ -1,11 +1,11 @@
 {
-    "name": "competitive-programming-helper-custom",
-    "displayName": "Competitive Programming Helper (cph) (Custom)",
+    "name": "competitive-programming-helper",
+    "displayName": "Competitive Programming Helper (cph)",
     "description": "Makes judging, compiling, and downloading problems for competitve programming easy. Also supports auto-submit for a few sites.",
     "license": "GPL-3.0-or-later",
     "icon": "image.jpg",
     "publisher": "aryan57",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "engines": {
         "vscode": "^1.52.0"
     },
@@ -66,7 +66,7 @@
             "properties": {
                 "cph.general.archiveFolderLocation": {
                     "type": "string",
-                    "default": "",
+                    "default": null,
                     "description": "Location where the copy of files will be saved for an archive.\nFor Example: /home/bob/cp-archive.\nLeave empty if you don't want it."
                 },
                 "cph.general.saveLocation": {
@@ -78,6 +78,11 @@
                     "type": "number",
                     "default": 3000,
                     "description": "The time in ms for which a testcase is run before it is killed ( timed-out )."
+                },
+                "cph.general.ignoreSTDERROR": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "If enabled, non-empty standard error will not result in testcase failing."
                 },
                 "cph.language.c.Args": {
                     "title": "Compilation flags for .c files",
@@ -113,6 +118,7 @@
                         "GNU G++14 6.4.0",
                         "GNU G++11 5.1.0",
                         "GNU G++17 9.2.0 (64 bit, msys 2)",
+                        "GNU G++20 11.2.0 (64 bit, winlibs)",
                         "Microsoft Visual C++ 2017",
                         "Microsoft Visual C++ 2010",
                         "Clang++17 Diagnostics"
@@ -189,7 +195,7 @@
                     "title": "Show welcome message",
                     "type": "boolean",
                     "default": true,
-                    "description": "A welcome message is shown when you run a testcase for the first time."
+                    "description": "A welcome message is shown when you run a testcase for the first time. This setting is updated automatically after the first message is shown."
                 },
                 "cph.general.defaultLanguage": {
                     "title": "Default language for new problems",
@@ -264,6 +270,7 @@
         "prettier": "2.0.5",
         "ts-loader": "^7.0.5",
         "typescript": "^3.8.3",
+        "vscode-codicons": "^0.0.17",
         "webpack": "^4.43.0",
         "webpack-cli": "^3.3.11"
     },
@@ -271,8 +278,7 @@
         "python-shell": "^2.0.2",
         "react": "^16.13.1",
         "react-autosize-textarea": "^7.0.0",
-        "react-dom": "^16.13.1",
-        "vsce": "^2.6.5"
+        "react-dom": "^16.13.1"
     },
     "repository": {
         "type": "git",

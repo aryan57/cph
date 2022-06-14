@@ -3,6 +3,7 @@ export type prefSection =
     | 'general.saveLocation'
     | 'general.defaultLanguage'
     | 'general.timeOut'
+    | 'general.ignoreSTDERROR'
     | 'general.firstTime'
     | 'general.useShortCodeForcesName'
     | 'general.menuChoices'
@@ -190,4 +191,8 @@ export type CphSubmitResponse = {
     problemName: string;
     sourceCode: string;
     languageId: number;
+};
+
+export type WebViewpersistenceState = {
+    ignoreSpaceWarning: boolean;
 };

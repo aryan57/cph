@@ -1,5 +1,31 @@
 # Changelog
 
+## 5.9.2
+
+-   Minor UI improvments for small sidebar widths.
+
+## 5.9.1
+
+-   Improve problem name parser to handle numbers.
+
+## 5.9.0
+
+-   Support non-latin alphabet for problem names.
+
+## 5.8.9
+
+-   Companion server now listens for errors and notifies users.
+
+## 5.8.8
+
+-   Add support for C++ 20.
+-   Save file before submission.
+
+## 5.8.1
+
+-   Add icons to UI.
+-   Add minimum width warning.
+
 ## 5.0.7
 
 -   Fix missed messages bug when webview is not focussed.

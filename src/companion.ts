@@ -16,6 +16,7 @@ import {
 import { getProblemName } from './submit';
 import { spawn } from 'child_process';
 import { getJudgeViewProvider } from './extension';
+import { words_in_text } from './utilsPure';
 
 const emptyResponse: CphEmptyResponse = { empty: true };
 let savedResponse: CphEmptyResponse | CphSubmitResponse = emptyResponse;
@@ -125,6 +126,11 @@ export const setupCompanionServer = () => {
             res.end();
         });
         server.listen(config.port);
+        server.on('error', (err) => {
+            vscode.window.showErrorMessage(
+                `Are multiple VSCode windows open? CPH will work on the first opened window. CPH server encountered an error: "${err.message}" , companion may not work.`,
+            );
+        });
         console.log('Companion server listening on port', config.port);
         return server;
     } catch (e) {
@@ -140,31 +146,15 @@ export const getProblemFileName = (problem: Problem, ext: string) => {
             isCodeforcesUrl(new URL(problem.url)),
             useShortCodeForcesName(),
         );
-        return `${problem.name.replace(/\W+/g, '_')}.${ext}`;
+
+        const words = words_in_text(problem.name);
+        if (words === null) {
+            return `${problem.name.replace(/\W+/g, '_')}.${ext}`;
+        } else {
+            return `${words.join('_')}.${ext}`;
+        }
     }
 };
-
-const getInitialText = (): string => {
-    let date_ob = new Date();
-
-    // current date
-    // adjust 0 before single digit date
-    let date = ("0" + date_ob.getDate()).slice(-2);
-
-    // current month
-    let month_name = date_ob.toLocaleString('default', { month: 'long' });
-
-    // current year
-    let year = date_ob.getFullYear();
-
-    let today_string = date + "-" + month_name + "-" + year + " " + date_ob.toLocaleTimeString('en-US', { hour12: false });
-
-    let str = '';
-    str += '\n';
-    str += '//\tparsed : ' + today_string + ' IST';
-
-    return str;
-}
 
 /** Handle the `problem` sent by Competitive Companion, such as showing the webview, opening an editor, managing layout etc. */
 const handleNewProblem = async (problem: Problem) => {
@@ -221,7 +211,7 @@ const handleNewProblem = async (problem: Problem) => {
         id: randomId(),
     }));
     if (!existsSync(srcPath)) {
-        writeFileSync(srcPath, getInitialText());
+        writeFileSync(srcPath, '');
     }
     saveProblem(srcPath, problem);
     const doc = await vscode.workspace.openTextDocument(srcPath);

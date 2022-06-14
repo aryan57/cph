@@ -6,10 +6,10 @@ import { runTestCase, deleteBinary } from '../executions';
 import { isResultCorrect } from '../judge';
 import * as vscode from 'vscode';
 import { getJudgeViewProvider } from '../extension';
+import { getIgnoreSTDERRORPref } from '../preferences';
 
-import { writeFile, readFile, mkdir } from 'fs';
-const homedir = require('os').homedir();
 import path from 'path';
+import fs, { mkdirSync, writeFileSync } from 'fs';
 
 export const runSingleAndSave = async (
     problem: Problem,
@@ -34,112 +34,6 @@ export const runSingleAndSave = async (
 
     saveProblem(srcPath, problem);
 
-    //first get file name problem
-    let fileName = problem.name;
-    //  problems having their group as local have "Local: " as prefix, so removing it
-    if (problem.group == 'local' && problem.name.slice(0, 7) == 'Local: ')
-        fileName = problem.name.substr(7);
-
-    if (problem.srcPath.slice(problem.srcPath.length - 2) == '.c')
-        fileName += '.c';
-    else if (problem.srcPath.slice(problem.srcPath.length - 3) == '.py')
-        fileName += '.py';
-    else if (problem.srcPath.slice(problem.srcPath.length - 4) == '.cpp')
-        fileName += '.cpp';
-    else if (problem.srcPath.slice(problem.srcPath.length - 5) == '.java')
-        fileName += '.java';
-
-    //  Now read contents of the source-file
-    readFile(problem.srcPath, 'utf8', function (err: any, data: string) {
-        if (err) {
-            return console.log(err);
-        }
-        let file_contents = data;
-
-        // get meta-data for the file
-        let file_meta_data = '';
-        file_meta_data += '/*\n';
-        file_meta_data += '\tgroup : ' + problem.group + '\n';
-        file_meta_data += '\tname : ' + fileName + '\n';
-        file_meta_data += '\tsrcPath : ' + problem.srcPath + '\n';
-        file_meta_data += '\turl : ' + problem.url + '\n';
-        file_meta_data += '*/\n';
-
-        // add the meta-data in source-file's string
-        file_contents = file_meta_data + file_contents;
-
-        const archiveFolderPath = vscode.workspace
-            .getConfiguration('cph')
-            .get('general.archiveFolderLocation') as string;
-        if (archiveFolderPath != '') {
-            const x = problem.group.indexOf('-');
-            let contestSite = 'local';
-            let contestName = problem.group;
-
-            if (x != -1) {
-                contestSite = problem.group.substring(0, x).trim();
-                contestName = problem.group.substring(x + 1).trim();
-            }
-
-            function removeBadChar(str: string) {
-                let answer = "";
-                for (let i = 0; i < str.length; i++) {
-                    if ((str[i] >= 'a' && str[i] <= 'z')
-                        || (str[i] >= 'A' && str[i] <= 'Z')
-                        || (str[i] >= '0' && str[i] <= '9')
-                        || str[i]=='.')answer+=str[i];
-                        else answer+='-';
-                }
-                return answer;
-            }
-
-            // replace invalid characters from file names and folder paths
-            contestSite = removeBadChar(contestSite);
-            contestName = removeBadChar(contestName);
-            fileName = removeBadChar(fileName);
-
-            const newPath = path.join(
-                archiveFolderPath,
-                contestSite,
-                contestName,
-            );
-
-            // create the required directory if it doesn't exists
-            mkdir(newPath, { recursive: true }, (err: any) => {
-                if (err) throw err;
-            });
-
-            // create the file in the required directory
-            writeFile(
-                path.join(newPath, fileName),
-                file_contents,
-                (err: any) => {
-                    if (err) {
-                        // if there is some error in creating file in required directory, make file in the home-directory, also add the error message
-                        let error_message = '';
-                        error_message +=
-                            '//   there was some error in creating file in the directory ' +
-                            newPath+
-                            '\n';
-                        error_message +=
-                            '//   so creating the file in home directory ' +
-                            homedir +
-                            '\n';
-                        file_contents = error_message + file_contents;
-
-                        writeFile(
-                            path.join(homedir, fileName),
-                            file_contents,
-                            (err: any) => {
-                                if (err) throw err;
-                            },
-                        );
-                    }
-                },
-            );
-        }
-    });
-
     if (!skipCompile) {
         if (!(await compileFile(srcPath))) {
             console.error('Failed to compile', problem, id);
@@ -153,10 +47,12 @@ export const runSingleAndSave = async (
         deleteBinary(language, binPath);
     }
 
+    const stderrorFailure = getIgnoreSTDERRORPref() ? false : run.stderr !== '';
+
     const didError =
         (run.code !== null && run.code !== 0) ||
         run.signal !== null ||
-        run.stderr !== '';
+        stderrorFailure;
     const result: RunResult = {
         ...run,
         pass: didError ? false : isResultCorrect(testCase, run.stdout),
@@ -169,4 +65,62 @@ export const runSingleAndSave = async (
         result,
         problem,
     });
+
+    const archiveFolderPath = vscode.workspace
+        .getConfiguration('cph')
+        .get('general.archiveFolderLocation') as string;
+    if (archiveFolderPath) {
+        saveProblemInArchiveFolder(srcPath, archiveFolderPath, problem);
+    }
+};
+
+const saveProblemInArchiveFolder = (
+    srcPath: string,
+    archiveFolderPath: string,
+    problem: Problem,
+) => {
+    const fileName = path.basename(srcPath)
+        ? path.basename(srcPath)
+        : 'temp.txt';
+    const x = problem.group.indexOf('-');
+    let contestSite = 'local';
+    let contestName = problem.group;
+
+    if (x != -1) {
+        contestSite = problem.group.substring(0, x).trim();
+        contestName = problem.group.substring(x + 1).trim();
+    }
+
+    const wordsInText = function (text: string) {
+        const regex = /[\p{L}-]+|[0-9]+/gu;
+        return text.match(regex);
+    };
+
+    const removeBadChars = function (str: string) {
+        const words = wordsInText(str);
+        if (words === null) {
+            return `${str.replace(/\W+/g, '_')}`;
+        } else {
+            return `${words.join('_')}`;
+        }
+    };
+
+    contestName = removeBadChars(contestName);
+    contestSite = removeBadChars(contestSite);
+
+    const newPath = path.join(archiveFolderPath, contestSite, contestName);
+
+    try {
+        if (!fs.existsSync(newPath)) {
+            console.log('Making folder for archive file.');
+            mkdirSync(newPath, { recursive: true });
+        }
+        const fileContents = fs.readFileSync(srcPath).toString();
+        writeFileSync(path.join(newPath, fileName), fileContents);
+        console.log('Successfully saved ' + fileName + ' in archive');
+    } catch (err) {
+        vscode.window.showInformationMessage(
+            'Cannot save ' + fileName + ' in archive.\n' + String(err),
+        );
+    }
 };
